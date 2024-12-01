@@ -44,8 +44,11 @@ class SSLMetaArch(nn.Module):
 
         if cfg.student.pretrained_weights:
             chkpt = torch.load(cfg.student.pretrained_weights)
+            if "model" in chkpt:
+                chkpt = chkpt["model"]
             logger.info(f"OPTIONS -- pretrained weights: loading from {cfg.student.pretrained_weights}")
-            student_backbone.load_state_dict(chkpt["model"], strict=False)
+            msg = student_backbone.load_state_dict(chkpt, strict=False)
+            print(msg)
 
         self.embed_dim = embed_dim
         self.dino_out_dim = cfg.dino.head_n_prototypes

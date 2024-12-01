@@ -9,6 +9,8 @@ from torchvision.datasets import VisionDataset
 
 from .decoders import TargetDecoder, ImageDataDecoder
 
+# import matplotlib.pyplot as plt
+# import numpy as np
 
 class ExtendedVisionDataset(VisionDataset):
     def __init__(self, *args, **kwargs) -> None:
@@ -28,10 +30,16 @@ class ExtendedVisionDataset(VisionDataset):
             raise RuntimeError(f"can not read image for sample {index}") from e
         target = self.get_target(index)
         target = TargetDecoder(target).decode()
-
+        
         if self.transforms is not None:
             image, target = self.transforms(image, target)
-
+        
+        # globalteachercrop = image['global_crops_teacher'][0].numpy().transpose(1, 2, 0)
+        # globalteachercrop  *= (0.229, 0.224, 0.225)
+        # globalteachercrop  += (0.485, 0.456, 0.406)
+        # globalteachercrop  *= 255
+        # globalteachercrop  = np.clip(globalteachercrop, 0, 255).astype(np.uint8)        
+        # plt.imsave('outputtest.png', globalteachercrop)
         return image, target
 
     def __len__(self) -> int:

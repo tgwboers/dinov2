@@ -27,3 +27,5 @@ Thumbs.db             # Windows system file
 # Output folders
 pretrained/
 output/
+dinov2/wandb/
+wandb/
