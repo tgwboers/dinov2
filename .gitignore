@@ -1,11 +1,29 @@
+# Ignore the .env file (common for environment variables)
+.env
+
+# Ignore build artifacts
 build/
 dist/
 *.egg-info/
-**/__pycache__/
 
-**/.ipynb_checkpoints
+# Ignore Python cache files
+**/__pycache__/
+**/.ipynb_checkpoints/
 **/.ipynb_checkpoints/**
 
+# Ignore swap files created by text editors
 *.swp
 
+# Ignore VSCode workspace settings
 .vscode/
+
+# Additional common ignores (optional)
+*.log                 # Log files
+*.tmp                 # Temporary files
+.DS_Store             # macOS system file
+Thumbs.db             # Windows system file
+*.bak      
+
+# Output folders
+pretrained/
+output/
