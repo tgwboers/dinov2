@@ -9,7 +9,7 @@ else
     exit 1
 fi
 
-CONFIG=dinov2/configs/train/vitg14_cosmo2.yaml
+CONFIG=dinov2/configs/train/vitb14_cosmo.yaml
 OUTPUT_DIR="dinov2/output/Experiment 1"
 
 cd $HOME

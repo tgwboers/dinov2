@@ -10,7 +10,7 @@ import os
 from typing import Any, Callable, List, Optional, Set, Tuple
 import warnings
 from PIL import Image
-
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 
 from .extended import ExtendedVisionDataset
@@ -99,25 +99,38 @@ class GastroNet5M(ExtendedVisionDataset):
         """
         Generates metadata (entries and class IDs) for ZIP files.
         """
-        entries = []
         class_ids = []
         class_index_map = {}  # Maps ZIP file names to class indices
-
-        for class_index, zip_file in enumerate(sorted(self.zip_files)):
-            class_id = zip_file.stem  # Use ZIP file name (without extension) as class ID
-            class_index_map[class_id] = class_index
-
+        all_entries = []  # Collect entries for all ZIP files
+    
+        def process_zip(class_index, zip_file):
+            """Processes a single ZIP file and returns its entries."""
+            entries = []
             with ZipFile(zip_file) as zf:
                 for member in sorted(zf.namelist()):
                     if any(member.endswith(suffix) for suffix in self.image_suffixes):
                         entries.append((class_index, zip_file, member))
-            class_ids.append(class_id)
-
+            return entries
+    
+        zip_files_sorted = sorted(self.zip_files)
+        with ThreadPoolExecutor() as executor:
+            future_to_zip = {
+                executor.submit(process_zip, class_index, zip_file): (class_index, zip_file)
+                for class_index, zip_file in enumerate(zip_files_sorted)
+            }
+    
+            for future in future_to_zip:
+                class_index, zip_file = future_to_zip[future]
+                class_id = os.path.splitext(os.path.basename(zip_file))[0]
+                class_ids.append(class_id)
+                class_index_map[class_id] = class_index
+                all_entries.extend(future.result())
+    
         dtype = np.dtype(
-            [("class_index", "<u4"), ("class_id", "U50"), ("zip_file", "U255"), ("image_path", "U255")]
+            [("class_index", np.uint16), ("class_id", np.uint16), ("zip_file", "U20"), ("image_path", "U20")]
         )
         entries_array = np.array(
-            [(entry[0], class_ids[entry[0]], str(entry[1]), entry[2]) for entry in entries],
+            [(entry[0], class_ids[entry[0]], str(entry[1]), entry[2]) for entry in all_entries],
             dtype=dtype,
         )
         return entries_array, np.array(class_ids, dtype=f"U{max(len(cid) for cid in class_ids)}")
