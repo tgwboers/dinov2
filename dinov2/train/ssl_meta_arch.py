@@ -27,6 +27,18 @@ except ImportError:
 
 logger = logging.getLogger("dinov2")
 
+# Filter the checkpoint to only include weights with matching shapes
+def filter_mismatched_shapes(chkpt, model):
+    model_state = model.state_dict()
+    filtered_chkpt = {}
+    
+    for k, v in chkpt.items():
+        if k in model_state and model_state[k].shape == v.shape:
+            filtered_chkpt[k] = v
+        else:
+            logger.info(f"Skipping {k}: checkpoint shape {v.shape} != model shape {model_state.get(k, 'Key not found').shape}")
+    
+    return filtered_chkpt
 
 class SSLMetaArch(nn.Module):
     def __init__(self, cfg):
@@ -47,7 +59,10 @@ class SSLMetaArch(nn.Module):
             if "model" in chkpt:
                 chkpt = chkpt["model"]
             logger.info(f"OPTIONS -- pretrained weights: loading from {cfg.student.pretrained_weights}")
-            msg = student_backbone.load_state_dict(chkpt, strict=False)
+            filtered_student_chkpt = filter_mismatched_shapes(chkpt, student_backbone)
+            filtered_teacher_chkpt = filter_mismatched_shapes(chkpt, teacher_backbone)
+            msg = student_backbone.load_state_dict(filtered_student_chkpt, strict=False)
+            msg = teacher_backbone.load_state_dict(filtered_teacher_chkpt, strict=False)
             print(msg)
 
         self.embed_dim = embed_dim

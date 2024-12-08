@@ -3,11 +3,10 @@ from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
 from functools import lru_cache
-from zipfile import ZipFile, ZipInfo
+from zipfile import ZipFile
 from io import BytesIO
-from mmap import ACCESS_READ, mmap
 import os
-from typing import Any, Callable, List, Optional, Set, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 import warnings
 from PIL import Image
 from concurrent.futures import ThreadPoolExecutor
@@ -15,10 +14,6 @@ import numpy as np
 
 from .extended import ExtendedVisionDataset
 
-
-_Labels = int
-
-_DEFAULT_MMAP_CACHE_SIZE = 16  # Warning: This can exhaust file descriptors
 
 @dataclass
 class _ClassEntry:
@@ -42,6 +37,7 @@ class _Split(Enum):
         return {
             _Split.TRAIN: 5_000_000,
         }[self]
+
 
 class GastroNet5M(ExtendedVisionDataset):
     """
@@ -73,8 +69,6 @@ class GastroNet5M(ExtendedVisionDataset):
         
         print('len entries: ', len(self._entries))
         print('len self._class_ids: ', len(self._class_ids))
-        
-        self._mmap_cache = {}  # Cache for ZIP file handles
 
     def _load_or_generate_metadata(self) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -127,7 +121,7 @@ class GastroNet5M(ExtendedVisionDataset):
                 all_entries.extend(future.result())
     
         dtype = np.dtype(
-            [("class_index", np.uint16), ("class_id", np.uint16), ("zip_file", "U20"), ("image_path", "U20")]
+            [("class_index", np.uint16), ("class_id", np.uint16), ("zip_file", "U30"), ("image_path", "U30")]
         )
         entries_array = np.array(
             [(entry[0], class_ids[entry[0]], str(entry[1]), entry[2]) for entry in all_entries],
@@ -140,13 +134,12 @@ class GastroNet5M(ExtendedVisionDataset):
         Fetches raw image data from the ZIP file for the given index.
         """
         entry = self._entries[index]
-        zip_file, image_path = entry["zip_file"], entry["image_path"]
+        zip_file_path, image_path = entry["zip_file"], entry["image_path"]
 
-        if zip_file not in self._mmap_cache:
-            self._mmap_cache[zip_file] = ZipFile(zip_file, mode="r")
-
-        with self._mmap_cache[zip_file].open(image_path) as f:
-            image_data = f.read()
+        # Open the ZIP file as a context manager
+        with ZipFile(zip_file_path, mode="r") as zf:
+            with zf.open(image_path) as f:
+                image_data = f.read()
 
         return image_data
 
@@ -178,6 +171,12 @@ class GastroNet5M(ExtendedVisionDataset):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             return super().__getitem__(index)
+
+    def __len__(self) -> int:
+        """
+        Returns the total number of entries.
+        """
+        return len(self._entries)
 
     def __len__(self) -> int:
         """
